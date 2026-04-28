@@ -1,4 +1,41 @@
+# =============================================================================
+#  Ferzion Discovery — Ambiente de Desenvolvimento Local
+# =============================================================================
+#
+#  Stack:
+#    postgres        → banco principal (porta host 5433 → container 5432)
+#    redis           → cache e broker Celery (host 6380 → container 6379)
+#    backend         → Django + DRF (host 8001 → container 8000)
+#    celery_worker   → tarefas assíncronas (sem porta exposta)
+#    frontend        → Next.js do briefing público (host 3001 → container 3000)
+#
+#  Comunicação interna entre containers usa nomes de serviço e portas padrão
+#  (ex: backend conecta em "postgres:5432" e "redis:6379"). As portas
+#  remapeadas só afetam acesso a partir da sua máquina (host).
+#
+#  Comandos úteis:
+#      docker compose up -d           # sobe em background
+#      docker compose logs -f         # acompanha logs ao vivo
+#      docker compose ps              # status dos containers
+#      docker compose down            # derruba (preserva volumes)
+#      docker compose down -v         # derruba e apaga volumes (RESET TOTAL)
+#      docker compose exec backend bash   # entra no container backend
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+#  Configuração de logging compartilhada (rotação automática)
+# -----------------------------------------------------------------------------
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
+  # ===========================================================================
+  #  INFRAESTRUTURA
+  # ===========================================================================
+
   postgres:
     image: postgres:16-alpine
     container_name: ferzion-postgres
@@ -7,23 +44,42 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-ferzion_discovery}
       POSTGRES_USER: ${POSTGRES_USER:-ferzion}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ferzion_dev}
+      # Tuning leve para dev (memória, conexões)
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     ports:
-      - "5432:5432"
+      # 5433 no host evita conflito com outros projetos rodando Postgres em 5432
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ferzion}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-ferzion} -d ${POSTGRES_DB:-ferzion_discovery}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 10s
+    networks:
+      - ferzion_network
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
 
   redis:
     image: redis:7-alpine
     container_name: ferzion-redis
     restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     ports:
-      - "6379:6379"
+      # 6380 no host evita conflito com Redis dos projetos RH e Rebanho
+      - "6380:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -31,6 +87,18 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+      start_period: 5s
+    networks:
+      - ferzion_network
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
+  # ===========================================================================
+  #  APLICAÇÃO
+  # ===========================================================================
 
   backend:
     build:
@@ -38,20 +106,48 @@ services:
       dockerfile: ../docker/backend/Dockerfile
     container_name: ferzion-backend
     restart: unless-stopped
+    # O comando faz três coisas em sequência:
+    #   1. Aguarda o banco aceitar conexões (failsafe extra além do healthcheck)
+    #   2. Roda migrations
+    #   3. Sobe o servidor de desenvolvimento
+    # Em produção, isso é substituído por gunicorn/uvicorn em compose.prod.yml.
     command: >
-      sh -c "uv run python manage.py migrate &&
+      sh -c "uv run python manage.py migrate --noinput &&
              uv run python manage.py runserver 0.0.0.0:8000"
     volumes:
       - ./backend:/app
+      # Isola .pyc/__pycache__ — não polui sua pasta no host com arquivos do container
+      - backend_pycache:/app/__pycache__
     ports:
-      - "8000:8000"
+      # 8001 no host evita conflito com o backend Django do projeto RH
+      - "8001:8000"
     env_file:
       - ./backend/.env
+    healthcheck:
+      # Considera "saudável" quando o admin Django responder (rota mais leve que existe)
+      test:
+        [
+          "CMD-SHELL",
+          'python -c ''import urllib.request; urllib.request.urlopen("http://localhost:8000/admin/login/")'' || exit 1',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - ferzion_network
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
 
   celery_worker:
     build:
@@ -59,14 +155,46 @@ services:
       dockerfile: ../docker/backend/Dockerfile
     container_name: ferzion-celery-worker
     restart: unless-stopped
-    command: uv run celery -A config worker --loglevel=info
+    # --concurrency=2 é razoável para dev. Em produção sobe.
+    # --without-gossip e --without-mingle reduzem ruído nos logs.
+    command: >
+      uv run celery -A config worker
+        --loglevel=info
+        --concurrency=2
+        --without-gossip
+        --without-mingle
     volumes:
       - ./backend:/app
+      - backend_pycache:/app/__pycache__
     env_file:
       - ./backend/.env
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "celery -A config inspect ping -d celery@$$HOSTNAME || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     depends_on:
-      - backend
-      - redis
+      redis:
+        condition: service_healthy
+      # Aguarda o backend ficar saudável (significa que migrations rodaram)
+      backend:
+        condition: service_healthy
+    networks:
+      - ferzion_network
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # ===========================================================================
+  #  APRESENTAÇÃO
+  # ===========================================================================
 
   frontend:
     build:
@@ -77,17 +205,54 @@ services:
     command: npm run dev
     volumes:
       - ./frontend:/app
+      # Volumes anônimos para isolar node_modules e .next do bind mount.
+      # Sem isso, o node_modules da sua máquina (se existir) vaza para o container.
       - /app/node_modules
       - /app/.next
     ports:
-      - "3000:3000"
+      # 3001 no host — preserva 3000 livre para outros experimentos Next
+      - "3001:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000/api
+      # API URL aponta para a porta do host (3001 → 8001) porque o navegador
+      # do usuário, e não o container, é quem faz a requisição.
+      - NEXT_PUBLIC_API_URL=http://localhost:8001/api
+      - NODE_ENV=development
+      # Hot reload mais confiável dentro do Docker
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    networks:
+      - ferzion_network
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 1G
 
+# =============================================================================
+#  REDE
+# =============================================================================
+#  Rede explícita e nomeada — facilita conectar containers de outros projetos
+#  a esta rede no futuro, se necessário (ex: ferramenta de monitoramento).
+# =============================================================================
+networks:
+  ferzion_network:
+    name: ferzion_network
+    driver: bridge
+
+# =============================================================================
+#  VOLUMES
+# =============================================================================
+#  Nomeados explicitamente para serem fáceis de identificar com `docker volume ls`.
+#  - postgres_data e redis_data persistem entre `docker compose down`.
+#  - backend_pycache é volume nomeado para isolar __pycache__ do bind mount.
+# =============================================================================
 volumes:
   postgres_data:
     name: ferzion_postgres_data
   redis_data:
     name: ferzion_redis_data
+  backend_pycache:
+    name: ferzion_backend_pycache
