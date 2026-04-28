@@ -1,0 +1,61 @@
+[project]
+name = "ferzion-discovery"
+version = "0.1.0"
+description = "Ferzion — Plataforma de Discovery e Briefing Estratégico"
+requires-python = ">=3.12"
+
+dependencies = [
+    "django>=5.1,<5.2",
+    "djangorestframework>=3.15",
+    "django-cors-headers>=4.4",
+    "django-environ>=0.11",
+    "psycopg[binary]>=3.2",
+    "redis>=5.0",
+    "django-redis>=5.4",
+    "celery>=5.4",
+    "django-celery-beat>=2.7",
+    "django-celery-results>=2.5",
+    "djangorestframework-simplejwt>=5.3",
+    "argon2-cffi>=23.1",
+    "pydantic>=2.9",
+    "weasyprint>=62.3",
+    "django-auditlog>=3.0",
+    "structlog>=24.4",
+    "django-extensions>=3.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-django>=4.9",
+    "pytest-cov>=5.0",
+    "factory-boy>=3.3",
+    "freezegun>=1.5",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "ipython>=8.27",
+    "django-debug-toolbar>=4.4",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = [".venv", "migrations", "node_modules"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "DJ", "SIM", "RUF"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/migrations/*" = ["E501", "N806"]
+"**/tests/*" = ["S101"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.testing"
+python_files = ["test_*.py", "*_test.py"]
+testpaths = ["apps", "tests"]
+addopts = ["--strict-markers", "--strict-config", "-ra"]

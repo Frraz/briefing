@@ -1,0 +1,57 @@
+/* Camada 2: Semantic — ★ PONTO DE REBRANDING ★ */
+@import './primitives.css';
+
+:root {
+  --color-brand-primary: var(--color-brand-500);
+  --color-brand-secondary: var(--color-neutral-700);
+  --color-brand-accent: var(--color-brand-900);
+
+  --color-surface: var(--color-neutral-0);
+  --color-surface-subtle: var(--color-neutral-50);
+  --color-surface-muted: var(--color-neutral-100);
+  --color-surface-elevated: var(--color-neutral-0);
+  --color-surface-overlay: rgb(0 0 0 / 0.6);
+
+  --color-text-primary: var(--color-neutral-900);
+  --color-text-secondary: var(--color-neutral-600);
+  --color-text-muted: var(--color-neutral-400);
+  --color-text-inverse: var(--color-neutral-0);
+  --color-text-on-brand: var(--color-neutral-0);
+
+  --color-border-default: var(--color-neutral-200);
+  --color-border-subtle: var(--color-neutral-100);
+  --color-border-strong: var(--color-neutral-400);
+  --color-border-focus: var(--color-brand-primary);
+
+  --color-state-success: var(--color-success-500);
+  --color-state-warning: var(--color-warning-500);
+  --color-state-error: var(--color-error-500);
+  --color-state-info: var(--color-info-500);
+
+  --color-interactive-primary: var(--color-brand-primary);
+  --color-interactive-primary-hover: var(--color-brand-accent);
+  --color-interactive-secondary: var(--color-surface-muted);
+
+  --font-body: var(--font-sans);
+  --font-heading: var(--font-display);
+  --font-code: var(--font-mono);
+
+  --text-caption: var(--text-xs);
+  --text-body-sm: var(--text-sm);
+  --text-body: var(--text-base);
+  --text-body-lg: var(--text-lg);
+  --text-heading-sm: var(--text-xl);
+  --text-heading: var(--text-2xl);
+  --text-heading-lg: var(--text-3xl);
+  --text-display: var(--text-5xl);
+
+  --radius-input: var(--radius-md);
+  --radius-button: var(--radius-md);
+  --radius-card: var(--radius-lg);
+  --radius-modal: var(--radius-xl);
+
+  --shadow-card: var(--shadow-sm);
+  --shadow-card-hover: var(--shadow-md);
+  --shadow-modal: var(--shadow-xl);
+  --shadow-popover: var(--shadow-lg);
+}
