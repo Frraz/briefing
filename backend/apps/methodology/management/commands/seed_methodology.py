@@ -5,7 +5,7 @@ Popula a base com a estrutura inicial do Roteiro Universal Ferzion:
     - 1 RoteiroIdentidade ("Roteiro Universal Ferzion")
     - 1 RoteiroVersao v1 em DRAFT
     - 8 atos canônicos (Acolhimento → Ponte) com títulos prontos
-    - Catálogo base de ~15 sinais cobrindo as 7 categorias
+    - Catálogo base de 21 sinais cobrindo as 7 categorias
 
 NÃO popula perguntas, opções, mapeamentos, insights ou regras —
 isso é trabalho intelectual consciente que deve acontecer no admin.
@@ -31,7 +31,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from apps.methodology.models import (
@@ -46,7 +46,6 @@ from apps.methodology.models import (
     TipoValorSinal,
 )
 
-
 # =============================================================================
 #  Conteúdo do seed — atos e sinais canônicos
 # =============================================================================
@@ -59,8 +58,7 @@ ATOS_CANONICOS: list[dict[str, Any]] = [
         "ordem": 0,
         "titulo_publico": "Antes de qualquer projeto, vamos conversar.",
         "subtitulo_publico": (
-            "A Ferzion não começa um sistema escrevendo código. "
-            "Começamos entendendo seu negócio."
+            "A Ferzion não começa um sistema escrevendo código. Começamos entendendo seu negócio."
         ),
         "introducao_publica": (
             "Nos próximos minutos, vamos passar juntos por quatro momentos: "
@@ -80,8 +78,7 @@ ATOS_CANONICOS: list[dict[str, Any]] = [
         "ordem": 1,
         "titulo_publico": "Antes de tudo, vamos nos conhecer.",
         "subtitulo_publico": (
-            "Algumas perguntas rápidas para entendermos quem você é e o "
-            "momento da sua empresa."
+            "Algumas perguntas rápidas para entendermos quem você é e o momento da sua empresa."
         ),
         "descricao_interna": (
             "Calibração silenciosa do perfil de profundidade (Light/Standard/"
@@ -94,9 +91,7 @@ ATOS_CANONICOS: list[dict[str, Any]] = [
         "slug": SlugAto.COMPREENSAO,
         "ordem": 2,
         "titulo_publico": "O que vocês entregam ao mundo.",
-        "subtitulo_publico": (
-            "Vamos entender como sua empresa cria, entrega e captura valor."
-        ),
+        "subtitulo_publico": ("Vamos entender como sua empresa cria, entrega e captura valor."),
         "descricao_interna": (
             "Mapeamento do modelo de negócio: proposta de valor, diferencial, "
             "ciclo comercial, operação core. Base para sugerir módulos certos."
@@ -122,9 +117,7 @@ ATOS_CANONICOS: list[dict[str, Any]] = [
         "slug": SlugAto.ASPIRACOES,
         "ordem": 4,
         "titulo_publico": "Onde você quer chegar.",
-        "subtitulo_publico": (
-            "Sem isso, qualquer sistema é solução para o problema errado."
-        ),
+        "subtitulo_publico": ("Sem isso, qualquer sistema é solução para o problema errado."),
         "descricao_interna": (
             "Visão de 12 meses, referências inspiracionais, motivação simbólica. "
             "A motivação simbólica costuma ser a chave emocional da venda."
@@ -136,8 +129,7 @@ ATOS_CANONICOS: list[dict[str, Any]] = [
         "ordem": 5,
         "titulo_publico": "Agora, a parte mais honesta da conversa.",
         "subtitulo_publico": (
-            "Quanto mais real você for aqui, mais preciso será o que vamos "
-            "te entregar."
+            "Quanto mais real você for aqui, mais preciso será o que vamos te entregar."
         ),
         "introducao_publica": (
             "A Ferzion não tem proposta única — temos caminhos diferentes "
@@ -155,8 +147,7 @@ ATOS_CANONICOS: list[dict[str, Any]] = [
         "ordem": 6,
         "titulo_publico": "Aqui está o que descobrimos sobre o seu negócio.",
         "subtitulo_publico": (
-            "Diagnóstico estratégico, oportunidades identificadas, e o "
-            "caminho que recomendamos."
+            "Diagnóstico estratégico, oportunidades identificadas, e o caminho que recomendamos."
         ),
         "descricao_interna": (
             "Ato gerado, não respondido. Composição determinística baseada em "
@@ -171,8 +162,7 @@ ATOS_CANONICOS: list[dict[str, Any]] = [
         "ordem": 7,
         "titulo_publico": "Este é o início do nosso relacionamento.",
         "subtitulo_publico": (
-            "Você terá acesso ao seu painel pessoal, com diagnóstico expandido "
-            "e próximos passos."
+            "Você terá acesso ao seu painel pessoal, com diagnóstico expandido e próximos passos."
         ),
         "descricao_interna": (
             "Transição do briefing para o painel do cliente. "
@@ -185,6 +175,7 @@ ATOS_CANONICOS: list[dict[str, Any]] = [
 
 # Catálogo base de sinais — vocabulário inicial do sistema.
 # Cobre as 7 categorias: PERFIL, NEGOCIO, OPERACAO, DOR, ASPIRACAO, RESTRICAO, META.
+# Total: 21 sinais (categóricos/escala + texto preservado + meta).
 SINAIS_CANONICOS: list[dict[str, Any]] = [
     # --- PERFIL ---
     {
@@ -220,6 +211,18 @@ SINAIS_CANONICOS: list[dict[str, Any]] = [
         "tipo_valor": TipoValorSinal.CATEGORICO,
         "valores_validos": ["nova", "1_a_3_anos", "3_a_10_anos", "consolidada"],
     },
+    {
+        "chave": "evento_gatilho",
+        "nome": "Evento gatilho",
+        "descricao": (
+            "Resposta livre à pergunta 'O que aconteceu nas últimas semanas "
+            "que te trouxe aqui?'. Captura dor recente, urgência real, "
+            "contexto emocional. Texto preservado integral; categorização "
+            "por palavras-chave acontece no motor de sinais."
+        ),
+        "categoria": CategoriaSinal.PERFIL,
+        "tipo_valor": TipoValorSinal.TEXTO,
+    },
     # --- NEGOCIO ---
     {
         "chave": "modelo_comercial",
@@ -239,6 +242,17 @@ SINAIS_CANONICOS: list[dict[str, Any]] = [
         "categoria": CategoriaSinal.NEGOCIO,
         "tipo_valor": TipoValorSinal.CATEGORICO,
         "valores_validos": ["baixo", "medio", "alto", "muito_alto", "nao_medido"],
+    },
+    {
+        "chave": "proposta_valor",
+        "nome": "Proposta de valor declarada",
+        "descricao": (
+            "Resposta à pergunta 'se eu fosse seu cliente final, o que eu "
+            "compraria de vocês?'. Texto preservado — alimenta frase-síntese "
+            "do Ato 6 e serve como referência consultiva primária."
+        ),
+        "categoria": CategoriaSinal.NEGOCIO,
+        "tipo_valor": TipoValorSinal.TEXTO,
     },
     # --- OPERACAO ---
     {
@@ -280,7 +294,13 @@ SINAIS_CANONICOS: list[dict[str, Any]] = [
         "descricao": "Grau de comunicação entre as ferramentas digitais usadas.",
         "categoria": CategoriaSinal.OPERACAO,
         "tipo_valor": TipoValorSinal.CATEGORICO,
-        "valores_validos": ["integrado", "parcial", "isolado", "manual_via_planilha", "desconhecido"],
+        "valores_validos": [
+            "integrado",
+            "parcial",
+            "isolado",
+            "manual_via_planilha",
+            "desconhecido",
+        ],
     },
     # --- DOR ---
     {
@@ -338,6 +358,17 @@ SINAIS_CANONICOS: list[dict[str, Any]] = [
         "categoria": CategoriaSinal.ASPIRACAO,
         "tipo_valor": TipoValorSinal.TEXTO,
     },
+    {
+        "chave": "visao_futura",
+        "nome": "Visão de futuro (12 meses)",
+        "descricao": (
+            "Resposta à pergunta 'imagina que daqui a 12 meses esse sistema "
+            "está funcionando do jeito que você sonha — o que mudou na sua "
+            "rotina?'. Texto preservado. Componente emocional da devolutiva."
+        ),
+        "categoria": CategoriaSinal.ASPIRACAO,
+        "tipo_valor": TipoValorSinal.TEXTO,
+    },
     # --- RESTRICAO ---
     {
         "chave": "faixa_investimento",
@@ -374,6 +405,18 @@ SINAIS_CANONICOS: list[dict[str, Any]] = [
         "categoria": CategoriaSinal.META,
         "tipo_valor": TipoValorSinal.CATEGORICO,
         "valores_validos": ["light", "standard", "deep", "enterprise"],
+    },
+    {
+        "chave": "disponibilidade_tempo",
+        "nome": "Disponibilidade de tempo declarada",
+        "descricao": (
+            "Quanto tempo o cliente declara ter para o briefing. "
+            "Calibrador secundário do perfil de profundidade — junto com "
+            "porte_operacional, define densidade do fluxo."
+        ),
+        "categoria": CategoriaSinal.META,
+        "tipo_valor": TipoValorSinal.CATEGORICO,
+        "valores_validos": ["rapido", "medio", "completo", "salvar_depois"],
     },
 ]
 
@@ -430,9 +473,7 @@ class Command(BaseCommand):
         Para dev local em container, --force é confirmação suficiente.
         """
         self.stdout.write(
-            self.style.WARNING(
-                "\n⚠️  Modo --force ativo. Apagando metodologia existente...\n"
-            )
+            self.style.WARNING("\n⚠️  Modo --force ativo. Apagando metodologia existente...\n")
         )
 
     def _reset_completo(self) -> None:
@@ -451,9 +492,7 @@ class Command(BaseCommand):
         deleted_identidades, _ = RoteiroIdentidade.objects.all().delete()
         deleted_sinais, _ = CatalogoSinal.objects.all().delete()
 
-        self.stdout.write(
-            f"  · {deleted_versoes} registros de versões/atos/perguntas/etc apagados"
-        )
+        self.stdout.write(f"  · {deleted_versoes} registros de versões/atos/perguntas/etc apagados")
         self.stdout.write(f"  · {deleted_identidades} identidades apagadas")
         self.stdout.write(f"  · {deleted_sinais} sinais do catálogo apagados\n")
 
@@ -476,14 +515,10 @@ class Command(BaseCommand):
             },
         )
         marker = "criada" if criada else "já existia"
-        self.stdout.write(
-            f"  Identidade «{identidade.nome}» [{marker}]"
-        )
+        self.stdout.write(f"  Identidade «{identidade.nome}» [{marker}]")
         return identidade
 
-    def _garantir_versao_em_draft(
-        self, identidade: RoteiroIdentidade
-    ) -> RoteiroVersao:
+    def _garantir_versao_em_draft(self, identidade: RoteiroIdentidade) -> RoteiroVersao:
         """Garante uma versão em DRAFT para popular.
 
         Estratégia:
@@ -493,17 +528,13 @@ class Command(BaseCommand):
         """
         em_draft = identidade.versao_em_draft
         if em_draft:
-            self.stdout.write(
-                f"  Versão {em_draft} [já existia]"
-            )
+            self.stdout.write(f"  Versão {em_draft} [já existia]")
             return em_draft
 
         publicada = identidade.versao_publicada
         if publicada:
             nova = publicada.create_next_draft()
-            self.stdout.write(
-                f"  Versão {nova} [criada a partir de v{publicada.version}]"
-            )
+            self.stdout.write(f"  Versão {nova} [criada a partir de v{publicada.version}]")
             return nova
 
         # Caso de borda: identidade sem versão (não deve acontecer em uso normal,
@@ -513,9 +544,7 @@ class Command(BaseCommand):
             status=StatusVersao.DRAFT,
             notas_da_versao="Versão inicial criada pelo seed.",
         )
-        self.stdout.write(
-            f"  Versão {nova} [criada]"
-        )
+        self.stdout.write(f"  Versão {nova} [criada]")
         return nova
 
     def _garantir_atos(self, versao: RoteiroVersao) -> int:
@@ -550,9 +579,7 @@ class Command(BaseCommand):
                 obrigatorio=ato_data.get("obrigatorio", True),
             )
             criados += 1
-            self.stdout.write(
-                f"    + Ato '{ato_data['slug']}' criado"
-            )
+            self.stdout.write(f"    + Ato '{ato_data['slug']}' criado")
 
         if criados == 0:
             self.stdout.write("    (todos os atos canônicos já existem)")
@@ -564,9 +591,7 @@ class Command(BaseCommand):
         Idempotente por chave. Se a chave existe, não toca no registro
         (preserva qualquer edição que você tenha feito no admin).
         """
-        chaves_existentes = set(
-            CatalogoSinal.objects.values_list("chave", flat=True)
-        )
+        chaves_existentes = set(CatalogoSinal.objects.values_list("chave", flat=True))
         criados = 0
 
         for sinal_data in SINAIS_CANONICOS:
@@ -581,9 +606,7 @@ class Command(BaseCommand):
                 valores_validos=sinal_data.get("valores_validos", []),
             )
             criados += 1
-            self.stdout.write(
-                f"    + Sinal '{sinal_data['chave']}' criado"
-            )
+            self.stdout.write(f"    + Sinal '{sinal_data['chave']}' criado")
 
         if criados == 0:
             self.stdout.write("    (todos os sinais canônicos já existem)")
@@ -614,13 +637,10 @@ class Command(BaseCommand):
 
         if atos_criados or sinais_criados:
             self.stdout.write(
-                f"\n  Esta execução criou: {atos_criados} ato(s), "
-                f"{sinais_criados} sinal(is)."
+                f"\n  Esta execução criou: {atos_criados} ato(s), {sinais_criados} sinal(is)."
             )
         else:
-            self.stdout.write(
-                "\n  Nada foi criado nesta execução (estado já estava completo)."
-            )
+            self.stdout.write("\n  Nada foi criado nesta execução (estado já estava completo).")
 
         if total_perguntas == 0:
             self.stdout.write(
