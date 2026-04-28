@@ -4,6 +4,24 @@
 
 ---
 
+## Índice
+
+1. [Por que este documento existe](#por-que-este-documento-existe)
+2. [Anatomia de uma pergunta excelente](#1-anatomia-de-uma-pergunta-excelente)
+3. [Os 4 arquétipos de pergunta](#2-os-4-arquétipos-de-pergunta)
+4. [Os 7 vícios que matam perguntas](#3-os-7-vícios-que-matam-perguntas)
+5. [Linguagem para o espectro completo](#4-linguagem-para-o-espectro-completo)
+6. [Anatomia das opções](#5-anatomia-das-opções)
+7. [Mapeamento Resposta → Sinal](#6-mapeamento-resposta--sinal)
+8. [Pensando a devolutiva enquanto cria a pergunta](#7-pensando-a-devolutiva-enquanto-cria-a-pergunta)
+9. [Ritual de criação de pergunta](#ritual-de-criação-de-pergunta)
+10. [Checklist final antes de salvar uma pergunta](#checklist-final-antes-de-salvar-uma-pergunta)
+
+- [Apêndice A — Vocabulário Ferzion para microcopy](#apêndice-a--vocabulário-ferzion-para-microcopy)
+- [Apêndice B — Taxonomia e Espinha Dorsal](#apêndice-b--taxonomia-e-espinha-dorsal)
+
+---
+
 ## Por que este documento existe
 
 A metodologia da Ferzion é o ativo intelectual mais valioso do produto. Cada pergunta cadastrada no admin não é apenas um item de formulário — é uma decisão consultiva que vai produzir sinais, que vão alimentar diagnósticos, que vão formar a devolutiva que o cliente recebe.
@@ -243,7 +261,7 @@ Se todos os itens ✓, salvar com confiança.
 
 ---
 
-## Apêndice — vocabulário Ferzion para microcopy
+# Apêndice A — Vocabulário Ferzion para microcopy
 
 Frases que aparecem com frequência em ajuda contextual (`helper_text`, `placeholder`):
 
@@ -254,3 +272,128 @@ Frases que aparecem com frequência em ajuda contextual (`helper_text`, `placeho
 - "A gente sabe que isso muda. Responde pensando em hoje."
 
 Esse tom é parte da identidade — usá-lo consistentemente cria sensação de coerência.
+
+---
+
+# Apêndice B — Taxonomia e Espinha Dorsal
+
+## B1. Taxonomia mental: `categoria.dominio.dimensao`
+
+Padrão conceitual em 3 níveis. Não codificada nas chaves — vive na cabeça e em filtros.
+
+| Nível     | O que é           | Onde vive                      |
+| --------- | ----------------- | ------------------------------ |
+| Categoria | Família semântica | Atributo `categoria` no modelo |
+| Domínio   | Área de negócio   | Convenção da `chave`           |
+| Dimensão  | Atributo medido   | Convenção da `chave`           |
+
+**Regra de chave:** `{dominio}_{dimensão}` quando categoria sozinha não diferencia.
+
+- ✅ `dispersao_informacao`, `volume_comercial`, `historico_perda_operacional`
+- ❌ `dispersao` (vago), `comercial` (vago)
+
+**Por que não renomear para 3-níveis literais:** quebra mapeamentos, polui legibilidade. Categoria já cumpre o nível superior.
+
+## B2. Domínios canônicos
+
+| Domínio                    | Cobre                            |
+| -------------------------- | -------------------------------- |
+| `comercial`                | Vendas, prospecção, ticket       |
+| `operacao` / `operacional` | Entrega, execução, processo core |
+| `tecnologia`               | Sistemas, integrações, dados     |
+| `governanca`               | Decisão, hierarquia, estrutura   |
+| `pessoas`                  | Equipe, dependências humanas     |
+| `financeiro`               | Caixa, faturamento, custos       |
+| `cliente`                  | Relacionamento, retenção, NPS    |
+
+Sinais novos devem caber em um destes 7. Criar 8º exige justificativa explícita.
+
+## B3. Princípios anti-bagunça
+
+1. Antes de criar sinal novo → buscar no catálogo.
+2. Sinal só existe se for reutilizável. Específico de pergunta única → texto preservado.
+3. Sinal sem dono mental → não devia existir.
+4. Chave editável só em correção imediata. Após uso, imutável.
+
+## B4. Classificação tri-circular dos sinais
+
+### Círculo 1 — CORE INDISPENSÁVEL (briefing não funciona sem)
+
+```
+porte_operacional
+papel_decisor
+modelo_comercial
+complexidade_operacional
+faixa_investimento
+perfil_profundidade_calculado
+```
+
+### Círculo 2 — CORE DIAGNÓSTICO (eleva qualidade)
+
+```
+dispersao_informacao
+dependencia_humana_critica
+ferramenta_comercial
+fragmentacao_tecnologica
+historico_perda_operacional
+```
+
+### Círculo 3 — CORE CONTEXTUAL (enriquece)
+
+```
+maturidade_temporal
+volume_comercial
+nivel_integracao
+tempo_perdido_operacional
+referencia_inspiracional
+urgencia_implicita
+```
+
+### Círculo 4 — TEXTO PRESERVADO
+
+```
+disponibilidade_tempo  (categórico — calibração leve do fluxo)
+evento_gatilho         (texto)
+proposta_valor         (texto)
+visao_futura           (texto)
+```
+
+**Ordem de povoamento:** Círculo 1 → 2 → 3+4.
+
+## B5. Espinha dorsal — 8 perguntas universais
+
+| Ato         | Código | Nome interno         | Sinal-alvo              | Arquétipo   |
+| ----------- | ------ | -------------------- | ----------------------- | ----------- |
+| Acolhimento | 0.1    | `tempo_disponivel`   | `disponibilidade_tempo` | Calibradora |
+| Calibração  | 1.5    | `porte`              | `porte_operacional`     | Calibradora |
+| Calibração  | 1.7    | `evento_gatilho`     | `evento_gatilho`        | Reveladora  |
+| Compreensão | 2A.1   | `proposta_valor`     | `proposta_valor`        | Reveladora  |
+| Compreensão | 2B.1   | `modelo_comercial`   | `modelo_comercial`      | Calibradora |
+| Diagnóstico | 3.1    | `mora_informacao`    | `dispersao_informacao`  | Mapeadora   |
+| Aspirações  | 4.1    | `visao_12_meses`     | `visao_futura`          | Reveladora  |
+| Restrições  | 5.1    | `faixa_investimento` | `faixa_investimento`    | Calibradora |
+
+**Decisão alimentada por cada pergunta:**
+
+| Pergunta             | Decisão                     |
+| -------------------- | --------------------------- |
+| `tempo_disponivel`   | Densidade do fluxo          |
+| `porte`              | Perfil de profundidade      |
+| `evento_gatilho`     | Captura dor real e urgência |
+| `proposta_valor`     | Linguagem da devolutiva     |
+| `modelo_comercial`   | Módulos sugeridos           |
+| `mora_informacao`    | Score de maturidade digital |
+| `visao_12_meses`     | Frase final emocional       |
+| `faixa_investimento` | Escopo da proposta          |
+
+**Verticalizações HERDAM as 8.** Adicionam atos/perguntas especializadas, espinha permanece. Permite comparação longitudinal entre nichos.
+
+## B6. Workflow de povoamento
+
+| Fase | Foco                                          | Prazo     |
+| ---- | --------------------------------------------- | --------- |
+| 1    | 8 perguntas-âncora + Círculo 1 completo       | semana 1  |
+| 2    | Diagnóstico operacional + Círculo 2           | semana 2  |
+| 3    | Círculo 3, ramificações por perfil, microcopy | semana 3+ |
+
+Camada por camada. Não tentar fechar atos em paralelo.
