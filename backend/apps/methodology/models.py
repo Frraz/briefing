@@ -1,5 +1,5 @@
 """
-Ferzion Discovery — Methodology / Models (V3).
+Ferzion Discovery — Methodology / Models (V4).
 
 ★ Coração do sistema ★
 
@@ -13,7 +13,8 @@ Hierarquia:
                 ├── Ato
                 │       └── Pergunta
                 │               ├── OpcaoDePergunta
-                │               └── MapeamentoDeSinal → CatalogoSinal
+                │               ├── MapeamentoDeSinal → CatalogoSinal
+                │               └── FraseDevolutiva
                 ├── Insight (insights ao vivo + síntese)
                 └── RegraDeSintese (composição da devolutiva)
 
@@ -116,6 +117,19 @@ class CategoriaSinal(models.TextChoices):
     ASPIRACAO = "aspiracao", "Aspiração / visão"
     RESTRICAO = "restricao", "Restrição"
     META = "meta", "Meta-sinal (calibração interna)"
+
+
+class Arquetipo(models.TextChoices):
+    CALIBRADORA = "calibradora", "Calibradora"
+    REVELADORA = "reveladora", "Reveladora"
+    MAPEADORA = "mapeadora", "Mapeadora"
+    CONFRONTADORA = "confrontadora", "Confrontadora"
+
+
+class FaixaDevolutiva(models.TextChoices):
+    BAIXO = "baixo", "Baixo"
+    MEDIO = "medio", "Médio"
+    ALTO = "alto", "Alto"
 
 
 class SeveridadeInsight(models.TextChoices):
@@ -373,7 +387,7 @@ class RoteiroVersao(BaseEntity):
             notas_da_versao=f"Derivada de v{self.version}",
         )
 
-        # Duplica atos (que duplicam perguntas, opções, mapeamentos)
+        # Duplica atos (que duplicam perguntas, opções, mapeamentos, frases)
         ato_map: dict[str, Ato] = {}
         for ato in self.atos.order_by("ordem"):
             novo_ato = ato.duplicate_to(nova)
@@ -540,6 +554,16 @@ class Pergunta(BaseEntity):
         choices=TipoPergunta.choices,
         verbose_name="Tipo de pergunta",
     )
+    arquetipo = models.CharField(
+        max_length=24,
+        choices=Arquetipo.choices,
+        default=Arquetipo.CALIBRADORA,
+        verbose_name="Arquétipo",
+        help_text=(
+            "Função metodológica: Calibradora (classifica), Reveladora (texto livre), "
+            "Mapeadora (múltiplas marcações), Confrontadora (gera consciência)."
+        ),
+    )
     texto_publico = models.TextField(verbose_name="Texto público")
     placeholder = models.CharField(max_length=300, blank=True, verbose_name="Placeholder")
     helper_text = models.CharField(max_length=300, blank=True, verbose_name="Texto de ajuda")
@@ -573,6 +597,7 @@ class Pergunta(BaseEntity):
         indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["ato", "ordem"]),
             models.Index(fields=["tipo"]),
+            models.Index(fields=["arquetipo"]),
         ]
 
     def __str__(self) -> str:
@@ -635,6 +660,7 @@ class Pergunta(BaseEntity):
             codigo=self.codigo,
             ordem=self.ordem,
             tipo=self.tipo,
+            arquetipo=self.arquetipo,
             texto_publico=self.texto_publico,
             placeholder=self.placeholder,
             helper_text=self.helper_text,
@@ -648,6 +674,8 @@ class Pergunta(BaseEntity):
             opcao.duplicate_to(nova)
         for mapeamento in self.mapeamentos.all():
             mapeamento.duplicate_to(nova)
+        for frase in self.frases_devolutiva.all():
+            frase.duplicate_to(nova)
         return nova
 
     def to_snapshot_dict(self) -> dict[str, Any]:
@@ -656,6 +684,7 @@ class Pergunta(BaseEntity):
             "codigo": self.codigo,
             "ordem": self.ordem,
             "tipo": self.tipo,
+            "arquetipo": self.arquetipo,
             "texto_publico": self.texto_publico,
             "placeholder": self.placeholder,
             "helper_text": self.helper_text,
@@ -665,6 +694,7 @@ class Pergunta(BaseEntity):
             "tipo_config": self.tipo_config,
             "opcoes": [opcao.to_snapshot_dict() for opcao in self.opcoes.order_by("ordem")],
             "mapeamentos": [m.to_snapshot_dict() for m in self.mapeamentos.all()],
+            "frases_devolutiva": [f.to_snapshot_dict() for f in self.frases_devolutiva.all()],
         }
 
 
@@ -844,6 +874,12 @@ class MapeamentoDeSinal(BaseEntity):
         verbose_name = "Mapeamento de sinal"
         verbose_name_plural = "Mapeamentos de sinal"
         ordering: ClassVar[list[str]] = ["pergunta", "sinal"]
+        constraints: ClassVar[list[Any]] = [
+            models.UniqueConstraint(
+                fields=["pergunta", "sinal", "valor_extraido"],
+                name="uniq_mapeamento_pergunta_sinal_valor",
+            ),
+        ]
         indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["pergunta"]),
             models.Index(fields=["sinal"]),
@@ -1191,4 +1227,77 @@ class RegraDeSintese(BaseEntity):
             "perfis_aplicaveis": self.perfis_aplicaveis,
             "impacto_estimado": self.impacto_estimado,
             "modulo_sugerido_codigo": self.modulo_sugerido_codigo,
+        }
+
+
+# =============================================================================
+#  FRASE DE DEVOLUTIVA — texto da síntese por faixa de sinal
+# =============================================================================
+
+
+class FraseDevolutiva(BaseEntity):
+    """
+    Texto que aparece na devolutiva (Ato 6) conforme o valor do sinal-alvo
+    da pergunta. Uma frase por faixa (baixo/médio/alto).
+
+    Existe vinculada à Pergunta para preservar o "teste das 3 frases" do
+    framework metodológico — se uma pergunta não tem as 3, sinal está raso.
+    """
+
+    pergunta = models.ForeignKey(
+        Pergunta,
+        on_delete=models.CASCADE,
+        related_name="frases_devolutiva",
+        verbose_name="Pergunta",
+    )
+    faixa = models.CharField(
+        max_length=8,
+        choices=FaixaDevolutiva.choices,
+        verbose_name="Faixa",
+    )
+    texto = models.TextField(
+        verbose_name="Texto",
+        help_text="Frase exibida na devolutiva quando o sinal cair nesta faixa.",
+    )
+
+    class Meta:
+        verbose_name = "Frase de devolutiva"
+        verbose_name_plural = "Frases de devolutiva"
+        ordering: ClassVar[list[str]] = ["pergunta", "faixa"]
+        constraints: ClassVar[list[Any]] = [
+            models.UniqueConstraint(
+                fields=["pergunta", "faixa"],
+                name="uniq_frase_faixa_por_pergunta",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.pergunta.codigo} [{self.get_faixa_display()}]"
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        if self.pk and self.pergunta.ato.versao.is_immutable:
+            raise ImmutableEntityModificationAttempt(
+                "Não é possível modificar frases de uma versão imutável."
+            )
+        super().save(*args, **kwargs)
+
+    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
+        if self.pergunta.ato.versao.is_immutable:
+            raise ImmutableEntityModificationAttempt(
+                "Não é possível excluir frases de uma versão imutável."
+            )
+        return super().delete(*args, **kwargs)
+
+    def duplicate_to(self, nova_pergunta: Pergunta) -> FraseDevolutiva:
+        return FraseDevolutiva.objects.create(
+            pergunta=nova_pergunta,
+            faixa=self.faixa,
+            texto=self.texto,
+        )
+
+    def to_snapshot_dict(self) -> dict[str, Any]:
+        return {
+            "id": str(self.id),
+            "faixa": self.faixa,
+            "texto": self.texto,
         }
