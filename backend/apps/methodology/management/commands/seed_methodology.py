@@ -5,10 +5,8 @@ Popula a base com a estrutura inicial do Roteiro Universal Ferzion:
     - 1 RoteiroIdentidade ("Roteiro Universal Ferzion")
     - 1 RoteiroVersao v1 em DRAFT
     - 8 atos canônicos (Acolhimento → Ponte) com títulos prontos
-    - Catálogo base de 21 sinais cobrindo as 7 categorias
-
-NÃO popula perguntas, opções, mapeamentos, insights ou regras —
-isso é trabalho intelectual consciente que deve acontecer no admin.
+    - Catálogo base de 22 sinais cobrindo as 7 categorias
+    - Perguntas declarativas dos atos (a partir de seeds/ato_*.py)
 
 Uso:
     docker compose exec backend uv run python manage.py seed_methodology
@@ -17,14 +15,13 @@ Uso:
 Comportamento:
     Sem --force (idempotente):
         - Cria identidade se não existir.
-        - Cria atos faltantes na versão em draft (preserva os existentes).
-        - Cria sinais faltantes no catálogo (preserva os existentes).
-        - NÃO mexe em perguntas, opções, insights, regras.
+        - Cria atos faltantes na versão em draft.
+        - Cria sinais faltantes no catálogo.
+        - Cria/atualiza perguntas, opções, mapeamentos, frases.
 
     Com --force (destrutivo):
-        - Apaga TODA a metodologia atual (identidades, versões, sinais).
+        - Apaga TODA a metodologia atual.
         - Recria do zero.
-        - ATENÇÃO: perde também perguntas, opções, mapeamentos, insights, regras.
 """
 
 from __future__ import annotations
@@ -45,13 +42,13 @@ from apps.methodology.models import (
     TipoRoteiro,
     TipoValorSinal,
 )
+from apps.methodology.seeds import ato_1_calibracao
+from apps.methodology.seeds._loader import LoadResult, load_perguntas_para_ato
 
 # =============================================================================
-#  Conteúdo do seed — atos e sinais canônicos
+#  Atos canônicos
 # =============================================================================
 
-# Os 8 atos canônicos com títulos e subtítulos no tom Ferzion.
-# Tom: humano, simples, sem corporativês, traduzindo "transformar caos em clareza".
 ATOS_CANONICOS: list[dict[str, Any]] = [
     {
         "slug": SlugAto.ACOLHIMENTO,
@@ -173,9 +170,10 @@ ATOS_CANONICOS: list[dict[str, Any]] = [
 ]
 
 
-# Catálogo base de sinais — vocabulário inicial do sistema.
-# Cobre as 7 categorias: PERFIL, NEGOCIO, OPERACAO, DOR, ASPIRACAO, RESTRICAO, META.
-# Total: 21 sinais (categóricos/escala + texto preservado + meta).
+# =============================================================================
+#  Catálogo de sinais — 22 sinais cobrindo as 7 categorias
+# =============================================================================
+
 SINAIS_CANONICOS: list[dict[str, Any]] = [
     # --- PERFIL ---
     {
@@ -222,6 +220,29 @@ SINAIS_CANONICOS: list[dict[str, Any]] = [
         ),
         "categoria": CategoriaSinal.PERFIL,
         "tipo_valor": TipoValorSinal.TEXTO,
+    },
+    {
+        "chave": "segmento_operacional",
+        "nome": "Segmento operacional",
+        "descricao": (
+            "Área de atuação principal da empresa. Funciona como sinal contextual "
+            "para adaptar linguagem, exemplos, templates de oportunidade, regras "
+            "setoriais e interpretação dos demais sinais diagnósticos."
+        ),
+        "categoria": CategoriaSinal.PERFIL,
+        "tipo_valor": TipoValorSinal.CATEGORICO,
+        "valores_validos": [
+            "servicos",
+            "comercio",
+            "industria_producao",
+            "logistica_transporte",
+            "saude",
+            "educacao",
+            "tecnologia",
+            "construcao_imoveis",
+            "alimentacao",
+            "outro",
+        ],
     },
     # --- NEGOCIO ---
     {
@@ -393,7 +414,7 @@ SINAIS_CANONICOS: list[dict[str, Any]] = [
         "tipo_valor": TipoValorSinal.CATEGORICO,
         "valores_validos": ["alta", "media", "baixa"],
     },
-    # --- META (calibração interna) ---
+    # --- META ---
     {
         "chave": "perfil_profundidade_calculado",
         "nome": "Perfil de profundidade (calculado)",
@@ -422,6 +443,18 @@ SINAIS_CANONICOS: list[dict[str, Any]] = [
 
 
 # =============================================================================
+#  Registro de módulos de seed por ato
+#  Adicionar aqui conforme novos atos forem populados.
+# =============================================================================
+
+SEED_MODULES_POR_ATO: dict[SlugAto, Any] = {
+    SlugAto.CALIBRACAO: ato_1_calibracao,
+    # SlugAto.COMPREENSAO: ato_2_compreensao,   (futuro)
+    # SlugAto.DIAGNOSTICO: ato_3_diagnostico,   (futuro)
+}
+
+
+# =============================================================================
 #  Comando
 # =============================================================================
 
@@ -431,7 +464,8 @@ class Command(BaseCommand):
 
     help = (
         "Popula a base com a estrutura inicial do Roteiro Universal Ferzion: "
-        "identidade, v1 em draft, 8 atos canônicos e catálogo base de sinais."
+        "identidade, v1 em draft, atos canônicos, catálogo de sinais e "
+        "perguntas declarativas dos atos."
     )
 
     def add_arguments(self, parser: Any) -> None:
@@ -457,37 +491,25 @@ class Command(BaseCommand):
             versao = self._garantir_versao_em_draft(identidade)
             atos_criados = self._garantir_atos(versao)
             sinais_criados = self._garantir_sinais()
+            load_results = self._carregar_perguntas(versao)
 
         self._imprimir_resumo(
             identidade=identidade,
             versao=versao,
             atos_criados=atos_criados,
             sinais_criados=sinais_criados,
+            load_results=load_results,
         )
 
     # -------------------------------------------------------------------------
     #  Reset destrutivo
     # -------------------------------------------------------------------------
     def _confirm_destructive_or_abort(self) -> None:
-        """Em ambiente real, exigiria confirmação interativa.
-        Para dev local em container, --force é confirmação suficiente.
-        """
         self.stdout.write(
             self.style.WARNING("\n⚠️  Modo --force ativo. Apagando metodologia existente...\n")
         )
 
     def _reset_completo(self) -> None:
-        """Apaga tudo da metodologia (preservando integridade de FKs)."""
-        # Ordem importa: filhas antes das pais
-        from apps.methodology.models import (  # noqa: F401
-            Insight,
-            MapeamentoDeSinal,
-            OpcaoDePergunta,
-            Pergunta,
-            RegraDeSintese,
-        )
-
-        # Cascata cuida das filhas; mas vamos ser explícitos para deixar log claro
         deleted_versoes, _ = RoteiroVersao.objects.all().delete()
         deleted_identidades, _ = RoteiroIdentidade.objects.all().delete()
         deleted_sinais, _ = CatalogoSinal.objects.all().delete()
@@ -519,13 +541,6 @@ class Command(BaseCommand):
         return identidade
 
     def _garantir_versao_em_draft(self, identidade: RoteiroIdentidade) -> RoteiroVersao:
-        """Garante uma versão em DRAFT para popular.
-
-        Estratégia:
-            1. Se existe um draft, usa ele.
-            2. Se há apenas published, cria nova draft a partir dela.
-            3. Se não há nenhuma versão (caso esquisito após criação), cria v1.
-        """
         em_draft = identidade.versao_em_draft
         if em_draft:
             self.stdout.write(f"  Versão {em_draft} [já existia]")
@@ -537,8 +552,6 @@ class Command(BaseCommand):
             self.stdout.write(f"  Versão {nova} [criada a partir de v{publicada.version}]")
             return nova
 
-        # Caso de borda: identidade sem versão (não deve acontecer em uso normal,
-        # já que o sinal post_save cria automaticamente; mas seed é defensivo).
         nova = RoteiroVersao.objects.create(
             identidade=identidade,
             status=StatusVersao.DRAFT,
@@ -548,11 +561,6 @@ class Command(BaseCommand):
         return nova
 
     def _garantir_atos(self, versao: RoteiroVersao) -> int:
-        """Cria atos canônicos que ainda não existem na versão.
-
-        Idempotente: se um ato com o slug já existe, não recria nem altera.
-        Isso preserva qualquer customização que você tenha feito no admin.
-        """
         if versao.is_immutable:
             self.stdout.write(
                 self.style.WARNING(
@@ -586,11 +594,6 @@ class Command(BaseCommand):
         return criados
 
     def _garantir_sinais(self) -> int:
-        """Cria sinais canônicos que ainda não existem no catálogo.
-
-        Idempotente por chave. Se a chave existe, não toca no registro
-        (preserva qualquer edição que você tenha feito no admin).
-        """
         chaves_existentes = set(CatalogoSinal.objects.values_list("chave", flat=True))
         criados = 0
 
@@ -612,6 +615,24 @@ class Command(BaseCommand):
             self.stdout.write("    (todos os sinais canônicos já existem)")
         return criados
 
+    def _carregar_perguntas(self, versao: RoteiroVersao) -> list[LoadResult]:
+        """Carrega perguntas declarativas a partir de seeds/ato_*.py."""
+        if versao.is_immutable:
+            self.stdout.write(
+                self.style.WARNING(f"  ⚠ Versão {versao} está imutável — pulando perguntas.")
+            )
+            return []
+
+        results: list[LoadResult] = []
+        for ato_slug, modulo in SEED_MODULES_POR_ATO.items():
+            specs = getattr(modulo, "PERGUNTAS", [])
+            if not specs:
+                continue
+            result = load_perguntas_para_ato(versao, ato_slug, specs)
+            results.append(result)
+            self.stdout.write(f"  {result}")
+        return results
+
     # -------------------------------------------------------------------------
     #  Resumo final
     # -------------------------------------------------------------------------
@@ -621,6 +642,7 @@ class Command(BaseCommand):
         versao: RoteiroVersao,
         atos_criados: int,
         sinais_criados: int,
+        load_results: list[LoadResult],
     ) -> None:
         total_atos = versao.atos.count()
         total_sinais = CatalogoSinal.objects.count()
@@ -635,18 +657,21 @@ class Command(BaseCommand):
         self.stdout.write(f"  Catálogo de sinais: {total_sinais}")
         self.stdout.write(f"  Perguntas:         {total_perguntas}")
 
-        if atos_criados or sinais_criados:
+        if load_results:
+            total_p_criadas = sum(r.perguntas_criadas for r in load_results)
+            total_p_atualizadas = sum(r.perguntas_atualizadas for r in load_results)
+            total_o_criadas = sum(r.opcoes_criadas for r in load_results)
+            total_m_criadas = sum(r.mapeamentos_criados for r in load_results)
+            total_f_criadas = sum(r.frases_criadas for r in load_results)
             self.stdout.write(
-                f"\n  Esta execução criou: {atos_criados} ato(s), {sinais_criados} sinal(is)."
+                f"\n  Carga de perguntas: "
+                f"+{total_p_criadas} criadas, ~{total_p_atualizadas} atualizadas, "
+                f"+{total_o_criadas} opções, +{total_m_criadas} mapeamentos, "
+                f"+{total_f_criadas} frases."
             )
-        else:
-            self.stdout.write("\n  Nada foi criado nesta execução (estado já estava completo).")
 
-        if total_perguntas == 0:
-            self.stdout.write(
-                self.style.HTTP_INFO(
-                    "\n  → Próximo passo: abra o admin em http://localhost:8001/admin/\n"
-                    "    e comece a popular as perguntas dentro de cada ato."
-                )
+        self.stdout.write(
+            self.style.HTTP_INFO(
+                "\n  → Para revisar: http://localhost:8001/admin/methodology/pergunta/\n"
             )
-        self.stdout.write("")
+        )
