@@ -1,4 +1,5 @@
 """Ferzion Discovery — Settings base."""
+
 from pathlib import Path
 
 import environ
